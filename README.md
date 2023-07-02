@@ -6,3 +6,6 @@ then load them into BigQuery.
 This job is meant to be run twice an hour every weekday while the NASDAQ is open. Official trading
 hours for the NASDAQ are Monday - Friday from 9:30 AM to 4 PM US Eastern time, so it should run
 13 times per weekday. 
+
+Eventually, a dbt project will be developed to allow for some data transformations on the raw 
+data that is initially loaded by the .py script.
