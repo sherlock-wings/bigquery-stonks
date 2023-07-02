@@ -4,7 +4,7 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import os
 import pandas as pd
-import re
+from re import sub, match
 import requests
 from tqdm import tqdm
 
@@ -57,7 +57,7 @@ def get_sp500():
                       row.findAll('td')[4].text)
         
         # remove trailing newline chars
-        stock_info = [re.sub('^(.+)\n+$', '\g<1>', item) if re.match('^.+\n+$', item)\
+        stock_info = [sub('^(.+)\n+$', '\g<1>', item) if match('^.+\n+$', item)\
                       else item for item in stock_info]
         stocks.append(stock_info)
     return stocks
@@ -110,7 +110,7 @@ def load_to_bigquery(params:dict, df: pd.DataFrame):
         scopes = [params['scope_url']]
         )
     client = bigquery.Client(credentials=gcp_creds, project=params['project_id'])
-    job_config = bigquery.LoadJobConfig(write_disposition='WRITE_TRUNCATE')
+    job_config = bigquery.LoadJobConfig(write_disposition='WRITE_APPEND')
     job = client.load_table_from_dataframe(df, params['table_id'], job_config=job_config)
     job.result()
     # data = client.get_table(params['table_id'])
