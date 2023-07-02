@@ -5,7 +5,7 @@ then load them into BigQuery.
 
 
 
-# Contents
+## Contents
 
 - `get_stonks.py` -> This is a Python routine that physically calls the API and uploads the resulting data to BigQuery. This job is meant to be run twice an hour every day while the NASDAQ is open. Official trading hours for the NASDAQ are Monday to Friday from 9:30 AM to 4 PM US Eastern time, so it should run 14 times per weekday. 
 
