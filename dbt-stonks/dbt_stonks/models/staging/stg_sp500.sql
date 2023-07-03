@@ -1,7 +1,7 @@
 {{ config(materialized = 'incremental') }}
 
 with stg_sp500 as (
-    select call_at as call_at_datetime,
+    select call_at,
            extract(quarter from call_at) as call_at_quarter,
            extract(year from call_at) as call_at_year, 
            format_timestamp('%B', call_at) as call_at_month,

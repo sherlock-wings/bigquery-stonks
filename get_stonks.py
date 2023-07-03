@@ -121,4 +121,8 @@ def run_stonks():
     df = extract_sp500()
     load_to_bigquery(gcp_params, df)
 
-run_stonks()
+time_window_end = datetime.now().replace(hour=16, minute=30, second=0, microsecond=0)
+
+# don't run script after markets close for that day
+if datetime.now()< time_window_end:
+    run_stonks()
