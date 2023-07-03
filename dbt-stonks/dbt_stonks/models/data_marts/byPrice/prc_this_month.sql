@@ -1,6 +1,9 @@
+{{ config(schema='byPrice') }}
+
 with tbl as 
 (select extract(year from max(call_at)) as year,
         extract(quarter from max(call_at)) as quarter,
+        format_timestamp('%B', max(call_at)) as month,
         ticker_symbol,
         stock_name,
         industry,
