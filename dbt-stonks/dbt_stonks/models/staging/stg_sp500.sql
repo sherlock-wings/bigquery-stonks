@@ -1,3 +1,5 @@
+{{ config(materialized = 'incremental') }}
+
 with stg_sp500 as (
     select call_at,
            ticker_symbol,
@@ -27,3 +29,9 @@ with stg_sp500 as (
 )
 
 select * from stg_sp500
+
+{% if is_incremental() %}
+
+where call_at > (select max(call_at) from {{ this }})
+
+{% endif %}
