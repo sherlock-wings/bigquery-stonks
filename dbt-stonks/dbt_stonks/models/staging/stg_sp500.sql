@@ -1,7 +1,11 @@
 {{ config(materialized = 'incremental') }}
 
 with stg_sp500 as (
-    select call_at,
+    select call_at as call_at_datetime,
+           extract(quarter from call_at) as call_at_quarter,
+           extract(year from call_at) as call_at_year, 
+           format_timestamp('%B', call_at) as call_at_month,
+           format_timestamp('%A', call_at) as call_at_weekday,
            ticker_symbol,
            stock_name,
            sector,
