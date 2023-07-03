@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: realStonks_api_data
+    database: stonks-391402
+    schema: stonks
+    tables:
+      - name: stg_sp500
