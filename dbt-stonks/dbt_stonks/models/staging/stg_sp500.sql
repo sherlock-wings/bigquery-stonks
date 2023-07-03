@@ -2,9 +2,10 @@
 
 with stg_sp500 as (
     select call_at,
-           extract(quarter from call_at) as call_at_quarter,
            extract(year from call_at) as call_at_year, 
+           extract(quarter from call_at) as call_at_quarter,
            format_timestamp('%B', call_at) as call_at_month,
+           extract(week from call_at) as call_at_week,
            format_timestamp('%A', call_at) as call_at_weekday,
            ticker_symbol,
            stock_name,
