@@ -42,5 +42,6 @@ models:
       +materialized: view
       +schema: byPrice
       +schema: byVolume
+      +schema: byChange
       
       
