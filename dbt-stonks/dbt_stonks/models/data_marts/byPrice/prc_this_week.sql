@@ -9,7 +9,7 @@ with tbl as
         stock_name,
         industry,
         round(avg(price), 2) as avg_value_USD
- from {{source('realStonks_api_data', 'stg_sp500')}} 
+ from {{ ref('stg_sp500') }}  
  where format_date('%G-%V', call_at) = format_date('%G-%V', current_date()) 
  group by ticker_symbol, stock_name, industry
  order by avg_value_USD desc)

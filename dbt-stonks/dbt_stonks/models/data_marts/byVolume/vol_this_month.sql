@@ -8,7 +8,7 @@ with tbl as
         stock_name,
         industry,
         round(avg(total_volume), 0) as avg_volume
- from {{source('realStonks_api_data', 'stg_sp500')}} 
+ from {{ ref('stg_sp500') }} 
  where format_date('%G-%m', call_at) = format_date('%G-%m', current_date()) 
  group by ticker_symbol, stock_name, industry
  order by avg_volume desc)

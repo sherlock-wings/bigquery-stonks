@@ -2,6 +2,38 @@
 
 with stg_sp500 as (
     select call_at,
+           case 
+             when extract(minute from call_at) <= 14
+              and extract(second from call_at) <= 59
+            then datetime(
+              extract(year from call_at),
+              extract(month from call_at),
+              extract(day from call_at),
+              extract(hour from call_at),
+              00,
+              00
+            )
+             when extract(minute from call_at) between 15 and 44
+              and extract(second from call_at) <= 59
+            then datetime(
+              extract(year from call_at),
+              extract(month from call_at),
+              extract(day from call_at),
+              extract(hour from call_at),
+              30,
+              00
+            )
+            when extract(minute from call_at) between 45 and 59
+              and extract(second from call_at) <= 59
+            then datetime(
+              extract(year from timestamp_add(call_at, interval 1 hour)),
+              extract(month from timestamp_add(call_at, interval 1 hour)),
+              extract(day from timestamp_add(call_at, interval 1 hour)),
+              extract(hour from timestamp_add(call_at, interval 1 hour)),
+              00,
+              00
+            )
+           end as aprx_datetime, 
            extract(year from call_at) as call_at_year, 
            extract(quarter from call_at) as call_at_quarter,
            format_timestamp('%B', call_at) as call_at_month,

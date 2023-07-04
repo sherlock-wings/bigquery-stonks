@@ -5,7 +5,7 @@ with bg as(
          ticker_symbol,
          stock_name,
          industry
-  from `stonks-391402.stonks.stg_sp500`
+  from {{ ref('stg_sp500') }}
   where format_date('%G-%Q', call_at) = format_date('%G-%Q', current_date())
   group by 2, 3, 4 
 ),
@@ -15,7 +15,7 @@ ed as (
          ticker_symbol,
          stock_name,
          industry
-  from `stonks-391402.stonks.stg_sp500`
+  from {{ ref('stg_sp500') }}
   where format_date('%G-%Q', call_at) = format_date('%G-%Q', current_date())
   group by 2, 3, 4 
 ),
@@ -41,10 +41,10 @@ chg as (
            round(s2.price-s1.price, 2) as point_change,
            round(((s2.price-s1.price)/s1.price)*100, 1) as pcnt_change
     from bte
-    join `stonks-391402.stonks.stg_sp500` s1
+    join {{ ref('stg_sp500') }} s1
       on s1.ticker_symbol = bte.ticker_symbol
        and s1.call_at = bte.window_start
-    join `stonks-391402.stonks.stg_sp500`s2
+    join {{ ref('stg_sp500') }}s2
       on s2.ticker_symbol = bte.ticker_symbol
        and s2.call_at = bte.window_end 
 )
