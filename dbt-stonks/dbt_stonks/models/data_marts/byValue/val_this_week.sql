@@ -1,4 +1,4 @@
-{{ config(schema='byPrice') }}
+{{ config(schema='byValue') }}
 
 with tbl as 
 (select extract(year from max(call_at)) as year,
@@ -8,12 +8,12 @@ with tbl as
         ticker_symbol,
         stock_name,
         industry,
-        round(avg(price), 2) as avg_value_USD
+        round(avg(stock_index), 2) as avg_index
  from {{ ref('stg_sp500') }}  
  where format_date('%G-%V', call_at) = format_date('%G-%V', current_date()) 
  group by ticker_symbol, stock_name, industry
- order by avg_value_USD desc)
-select dense_rank() over(order by tbl.avg_value_USD desc)
+ order by avg_index desc)
+select dense_rank() over(order by tbl.avg_index desc)
        as stock_value_rank,
        tbl.* 
 from tbl

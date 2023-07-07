@@ -1,5 +1,6 @@
 import bs4 as bs
 from datetime import datetime, timezone
+from dateutil import tz
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import os
@@ -28,7 +29,7 @@ api_headers = {
 
 ## GOOGLE BIGQUERY PARAMS
 
-
+# `sp500` BigQuery table
 sp500_params_env = os.environ.get('SP500_PARAMS')
 sp500_params = {
         'keypath': sp500_params_env.split(';')[0],
@@ -39,6 +40,7 @@ sp500_params = {
         'scope_url':'https://www.googleapis.com/auth/cloud-platform'
         }
 
+# `market_caps` BigQuery table
 mc_params_env = os.environ.get('MC_PARAMS')
 mc_params = {
         'keypath': mc_params_env.split(';')[0],
@@ -80,45 +82,16 @@ def get_sp500():
         stocks.append(stock_info)
     return stocks
 
-def cache_market_caps(ticker_symbol_list:list) -> pd.DataFrame:
-    # check to see if data was already collected today
-    files = os.listdir()
-    csv_found = False
-    old_csv_detected=False
-    csv_filename = ''
+def get_market_caps(ticker_symbol_list:list) -> pd.DataFrame:
+    # call YFinance API to get all market caps for all S&P 500 stocks
+    data = []
+    for stock in ticker_symbol_list: 
+        ticker = Ticker(stock)
+        info = ticker.info
+        market_cap = info["marketCap"]
+        data.append({'ticker_symbol':stock.replace('-','.'),'market_cap':market_cap})
+    return pd.DataFrame(data)
     
-    # check if any csv files already exist, and capture that file's name if so
-    for f in files:
-        if f.endswith('.csv'):
-            csv_found = True
-            csv_filename+=f
-            break
-    # if you did find a csv, check to see if its filename contains today's date
-    if csv_found and csv_filename.split('_') != datetime.today().strftime('%Y-%m-%d'):
-        old_csv_detected = True
-
-    # if an old csv was found, delete it
-    if old_csv_detected:
-        os.remove(csv_filename)
-
-    # write a new csv so long as no csv was found, or if one was found that was old
-    if not csv_found or (csv_found and old_csv_detected):    
-        data = []
-        # call YFinance API to get all market caps for all S&P 500 stocks
-        for stock in ticker_symbol_list: 
-            ticker = Ticker(stock)
-            info = ticker.info
-            market_cap = info["marketCap"]
-            data.append({'ticker_symbol':stock.replace('-','.'),'market_cap':market_cap})
-        data = pd.DataFrame(data)
-        file_name = datetime.today().strftime('%Y-%m-%d')
-        data.to_csv(file_name+'_market_cap.csv', index=False)
-        return file_name
-    else:
-        return None
-    
-    
-
 # get a single row of data for a specific stock
 def get_row(headers:dict, url:str, stk:tuple):
     # run API call
@@ -138,12 +111,8 @@ def get_row(headers:dict, url:str, stk:tuple):
     return row
 
 # get all rows of data for all stocks on the S&P 500
-def extract_sp500() -> pd.DataFrame:
+def extract_current_sp500_data() -> pd.DataFrame:
     stocks = get_sp500()
-
-    # capture just the list of s&p 500 ticker symbols so we can pass it into another function later
-    tickers = [stock[0].replace('.','-')for stock in stocks]
-
     # call the api for each stock found
     l = len(stocks)
     then = datetime.now()
@@ -162,23 +131,14 @@ def extract_sp500() -> pd.DataFrame:
 
     stocks = pd.DataFrame(stocks)
     return stocks[['call_at', 'ticker_symbol', 'stock_name', 'sector', 'industry', 'hq_location',
-                  'total_vol', 'price', 'change_point', 'change_percentage']], tickers
+                  'total_vol', 'price', 'change_point', 'change_percentage']]
 
 # load data collected from extract_sp500() to bigquery instance
-def load_to_bigquery(params:dict, df: pd.DataFrame=None, mode: str='append', from_file: str=None):
+def load_to_bigquery(params:dict, df: pd.DataFrame, mode: str='append', from_file: str=None):
     # assert whether the dataframe is being passed in direct or if the user is indicating a path to read from
-    if df is None and from_file is None:
-        print("Data must be supplied either as a Pandas DataFrame in `df` or as a filepath to a CSV in `from_file`.")
+    if not isinstance(df, pd.DataFrame):
+        print("Data must be supplied as a Pandas DataFrame in `df`.")
         return None
-    if df is None and from_file is not None:
-        if not isinstance(from_file, str):
-            print('`from_file` must be a string')
-            return None
-        try:
-            df = pd.read_csv(from_file)
-        except:
-            print("Filepath provided for DataFrame is invalid.")
-            return None
     print('\n'+str(len(df))+' rows of stock data collected. Loading to BigQuery instance...')
     gcp_creds = service_account.Credentials.from_service_account_file(
         params['keypath'],
@@ -202,7 +162,8 @@ def load_to_bigquery(params:dict, df: pd.DataFrame=None, mode: str='append', fro
 
     print("\nLoad to BigQuery completed at "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-def get_last_updated_datetime(params):
+# get the time a BigQuery table was last updated
+def get_last_updated_datetime(params:dict):
     gcp_creds = service_account.Credentials.from_service_account_file(
         params['keypath'],
         scopes = [params['scope_url']]
@@ -214,26 +175,42 @@ def get_last_updated_datetime(params):
     last_updated = table.modified
     return last_updated.replace(tzinfo=timezone.utc).astimezone(tz=None)
 
-# get all stock info for companies on S&P 500, and load resulting DataFrame to BigQuery
+# check if a table has been updated sooner than some duration of time, where the duration is specified as a string
+def is_fresh(last_updated: datetime, as_of: str='1d'):
+    duration_value = int(sub('^(\d+).*$', '\g<1>', as_of))
+    duration_unit = sub('(?i)^.*([smhd])$', '\g<1>', as_of)
+    divisor = None
+    if not match('(?i)^[dhms]$', duration_unit):
+        print('`as_of` must be "D" for day, "H" for hour, "M" for minute, or "S" for second (case insensitve).')
+        return None
+    if duration_unit == 'd':
+        return (datetime.now().astimezone(tz.tzlocal()).day - last_updated.day) < duration_value
+    else:
+        duration_seconds = (datetime.now().astimezone(tz.tzlocal()) - last_updated).days*86400+\
+                           (datetime.now().astimezone(tz.tzlocal()) - last_updated).seconds
+        if duration_unit == 'h':
+            divisor = 3600
+        if duration_unit == 'm':
+            divisor = 60
+        if duration_unit == 's':
+            divisor = 1
+        return duration_seconds/divisor < duration_value
+
+# ## DRIVER FUNCTION
 def run_stonks():
-    # extract and load up-to-date stock prices from API
-    df, tickers = extract_sp500()
-    load_to_bigquery(sp500_params, df)
-    # check if market cap data has already been uploaded today
-    # if not, write the data locally, then read it and upload
-    # only update market cap data once per day
-    last_updated = get_last_updated_datetime(mc_params)
-    if last_updated.date() != datetime.today():
-        market_cap_datafile = cache_market_caps(tickers)
-        load_to_bigquery(mc_params, mode = 'overwrite', from_file=market_cap_datafile)
+    markets_close_time = datetime.now().replace(hour=16, minute=30, second=0, microsecond=0)
+    # don't run script after markets close for that day
+    if datetime.now()< markets_close_time:
+        # retrieve the current list of sp500 companies as per Wikipedia
+        stocks = get_sp500()
+        # copy the list of stock ticker symbols to a separate list
+        tickers = [stock[0].replace('.','-') for stock in stocks]
+        # extract the current up-to-the-minute stock data from the RealStonks API and upload to BigQuery
+        sp500_data = extract_current_sp500_data()
+        load_to_bigquery(sp500_params, sp500_data)
+        # if the list of Market Cap values is from yesterday or earlier, 
+        # then update the BigQuery table of market caps to today's values as per the yfinance API
+        if not is_fresh(get_last_updated_datetime(mc_params)):
+            load_to_bigquery(mc_params, get_market_caps(tickers), mode='overwrite')
 
-
-
-## DRIVER
-
-
-time_window_end = datetime.now().replace(hour=16, minute=30, second=0, microsecond=0)
-
-# don't run script after markets close for that day
-if datetime.now()< time_window_end:
-    run_stonks()
+run_stonks()

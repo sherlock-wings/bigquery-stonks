@@ -1,8 +1,9 @@
 version: 2
 
 sources:
-  - name: realStonks_api_data
+  - name: bq_instance
     database: stonks-391402
     schema: stonks
     tables:
       - name: sp500
+      - name: market_caps      

@@ -1,6 +1,6 @@
 {{ config(materialized = 'incremental') }}
 
-with stg_sp500 as (
+with sp500_init as (
     select call_at,
            case 
              when extract(minute from call_at) <= 14
@@ -62,13 +62,24 @@ with stg_sp500 as (
            price, 
            change_point,
            change_percentage  
-    from {{source('realStonks_api_data', 'sp500')}}       
+    from {{ source('bq_instance', 'sp500') }}       
 )
 
-select * from stg_sp500
+select s.*,
+       m.market_cap,
+       round(
+             (m.market_cap/
+             (select sum(market_cap) from {{ source('bq_instance', 'market_caps') }})
+             )*s.price,
+             2
+            ) as stock_index 
+from sp500_init s
+join {{ source('bq_instance', 'market_caps') }} m
+ on s.ticker_symbol = m.ticker_symbol
+
 
 {% if is_incremental() %}
 
-where call_at > (select max(call_at) from {{ this }})
+where s.call_at > (select max(call_at) from {{ this }})
 
 {% endif %}

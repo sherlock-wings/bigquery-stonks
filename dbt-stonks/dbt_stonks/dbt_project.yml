@@ -40,7 +40,7 @@ models:
       +materialized: table
     data_marts:
       +materialized: view
-      +schema: byPrice
+      +schema: byValue
       +schema: byVolume
       +schema: byChange
       
