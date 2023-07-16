@@ -89,7 +89,8 @@ def get_market_caps(ticker_symbol_list:list) -> pd.DataFrame:
         ticker = Ticker(stock)
         info = ticker.info
         market_cap = info["marketCap"]
-        data.append({'ticker_symbol':stock.replace('-','.'),'market_cap':market_cap})
+        data.append({'ticker_symbol':stock.replace('-','.'),'market_cap':market_cap,
+                    'call_at': datetime.now()})
     return pd.DataFrame(data)
     
 # get a single row of data for a specific stock

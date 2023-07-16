@@ -50,7 +50,7 @@ chg as (
 )
 
 select dense_rank() over(order by pcnt_change desc)
-       as value_change_rank,
+       as price_change_rank,
        extract(year from chg.window_start) as year,
        extract(quarter from chg.window_start) as quarter,
        extract(month from chg.window_start) as month,
@@ -63,4 +63,4 @@ select dense_rank() over(order by pcnt_change desc)
        chg.point_change,
        chg.pcnt_change
 from chg
-order by value_change_rank
+order by price_change_rank

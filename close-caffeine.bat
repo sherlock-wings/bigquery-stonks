@@ -1,0 +1,1 @@
+TASKKILL /IM caffeine64.exe /F
